@@ -1,0 +1,37 @@
+{
+  "name": "react-live-data-table",
+  "version": "1.0.14",
+  "description": "Your React component package with Tailwind",
+  "main": "src/index.js",
+  "module": "dist/index.esm.js",
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c --bundleConfigAsCjs",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "tailwindcss": ">=3.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.7",
+    "@babel/preset-env": "^7.26.7",
+    "@babel/preset-react": "^7.26.3",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.8",
+    "@rollup/plugin-node-resolve": "^15.3.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "autoprefixer": "^10.4.20",
+    "babel-loader": "^9.2.1",
+    "postcss": "^8.5.1",
+    "rollup": "^3.29.5",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "rollup-plugin-postcss": "^4.0.2",
+    "tailwindcss": "^3.4.17"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}
