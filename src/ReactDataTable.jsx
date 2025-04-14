@@ -180,6 +180,7 @@ function ReactDataTable({
     header: ({ data }) => {
       const allSelected = flatData.length > 0 && flatData.every(row => selectedRows[row.id]);
       const someSelected = flatData.some(row => selectedRows[row.id]) && !allSelected;
+
       
       return (
         <div className="flex items-center justify-center h-[40px]">
@@ -190,14 +191,9 @@ function ReactDataTable({
                 type="checkbox"
                 className='bg-gray-700 rounded-4 border-gray-200 text-blue-400 focus:ring-0 focus:ring-white'
                 checked={allSelected}
-                ref={(el) => {
-                  if (el) {
-                    el.indeterminate = someSelected;
-                  }
-                }}
                 onChange={(e) => handleSelectAll(e.target.checked, flatData)}
               />
-              {allSelected && (
+              {allSelected ? (
                 <svg
                   className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-white"
                   viewBox="0 0 20 20"
@@ -209,10 +205,10 @@ function ReactDataTable({
                     clipRule="evenodd"
                   />
                 </svg>
-              )}
-              {someSelected && (
+              ) : (
+                someSelected && 
                 <svg
-                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-white"
+                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none "
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
