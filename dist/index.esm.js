@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 function _arrayLikeToArray(r, a) {
   (null == a || a > r.length) && (a = r.length);
@@ -485,12 +485,131 @@ function ReactDataTable(_ref) {
     selectedRows = _React$useState8[0],
     setSelectedRows = _React$useState8[1];
   var previousSelected = React.useRef(selected);
+  var _useState = useState(null),
+    _useState2 = _slicedToArray(_useState, 2),
+    resizingIndex = _useState2[0],
+    setResizingIndex = _useState2[1];
+  var _useState3 = useState([]),
+    _useState4 = _slicedToArray(_useState3, 2),
+    columnWidths = _useState4[0],
+    setColumnWidths = _useState4[1];
+  var _useState5 = useState(null),
+    _useState6 = _slicedToArray(_useState5, 2),
+    startX = _useState6[0],
+    setStartX = _useState6[1];
+  var _useState7 = useState(null),
+    _useState8 = _slicedToArray(_useState7, 2),
+    initialWidth = _useState8[0],
+    setInitialWidth = _useState8[1];
+  var _useState9 = useState(0),
+    _useState10 = _slicedToArray(_useState9, 2);
+    _useState10[0];
+    var setTableWidth = _useState10[1];
+  // Ref to store column widths to ensure persistence during data loading
+  var persistedColumnWidthsRef = React.useRef([]);
+  var flatData = data.pages.flatMap(function (page) {
+    return page.data;
+  });
+  var checkboxColumn = {
+    id: 'select',
+    size: 50,
+    minWidth: 50,
+    resizable: false,
+    textAlign: "center",
+    header: function header(_ref2) {
+      var data = _ref2.data;
+      var allSelected = flatData.length > 0 && flatData.every(function (row) {
+        return selectedRows[row.id];
+      });
+      var someSelected = flatData.some(function (row) {
+        return selectedRows[row.id];
+      }) && !allSelected;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-center h-[40px]"
+      }, showSelectAllCheckbox && /*#__PURE__*/React.createElement("div", {
+        className: "relative"
+      }, /*#__PURE__*/React.createElement("input", {
+        id: data.id,
+        type: "checkbox",
+        className: "bg-gray-700 rounded-4 border-gray-200 text-blue-400 focus:ring-0 focus:ring-white",
+        checked: allSelected,
+        onChange: function onChange(e) {
+          return handleSelectAll(e.target.checked, flatData);
+        }
+      }), allSelected ? /*#__PURE__*/React.createElement("svg", {
+        className: "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-white",
+        viewBox: "0 0 20 20",
+        fill: "currentColor"
+      }, /*#__PURE__*/React.createElement("path", {
+        fillRule: "evenodd",
+        d: "M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z",
+        clipRule: "evenodd"
+      })) : someSelected && /*#__PURE__*/React.createElement("svg", {
+        className: "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none ",
+        viewBox: "0 0 20 20",
+        fill: "currentColor"
+      }, /*#__PURE__*/React.createElement("path", {
+        fillRule: "evenodd",
+        d: "M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z",
+        clipRule: "evenodd"
+      }))));
+    },
+    cell: function cell(_ref3) {
+      var row = _ref3.row;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-center h-[40px]",
+        onClick: function onClick(e) {
+          return e.stopPropagation();
+        }
+      }, /*#__PURE__*/React.createElement("input", {
+        id: row.id,
+        type: "checkbox",
+        className: "bg-gray-700 rounded-4 border-gray-200 text-blue-400 focus:ring-0 focus:ring-white",
+        checked: !!selectedRows[row.id],
+        onClick: function onClick(e) {
+          return e.stopPropagation();
+        },
+        onChange: function onChange(e) {
+          e.stopPropagation();
+          handleSelectRow(e.target.checked, row, flatData);
+        }
+      }));
+    }
+  };
+  var enhancedColumns = showCheckbox ? [checkboxColumn].concat(_toConsumableArray(columns)) : columns;
   useEffect(function () {
     if (JSON.stringify(previousSelected.current) !== JSON.stringify(selected)) {
       setSelectedRows(_objectSpread2({}, selected));
       previousSelected.current = selected;
     }
   }, [selected]);
+
+  // Initialize column widths array only once when component mounts or columns change
+  useEffect(function () {
+    var allColumns = showCheckbox ? [{
+      id: 'select',
+      size: 50
+    }].concat(_toConsumableArray(columns)) : columns;
+
+    // If we have persisted widths and the number of columns matches, use those
+    if (persistedColumnWidthsRef.current.length === allColumns.length) {
+      setColumnWidths(_toConsumableArray(persistedColumnWidthsRef.current));
+      setTableWidth(persistedColumnWidthsRef.current.reduce(function (sum, width) {
+        return sum + width;
+      }, 0));
+    } else {
+      // Otherwise initialize with default widths
+      var initialWidths = allColumns.map(function (column) {
+        return column.size || column.minWidth || 150;
+      });
+      setColumnWidths(initialWidths);
+      setTableWidth(initialWidths.reduce(function (sum, width) {
+        return sum + width;
+      }, 0));
+      // Store in our ref for persistence
+      persistedColumnWidthsRef.current = _toConsumableArray(initialWidths);
+    }
+  }, [columns, showCheckbox]);
   useEffect(function () {
     setData({
       pages: [],
@@ -517,8 +636,56 @@ function ReactDataTable(_ref) {
       loadInitialData();
     }
   }, [dataSource, staticData]);
+  var handleMouseMove = useCallback(function (e) {
+    var _enhancedColumns$resi;
+    if (resizingIndex === null || startX === null || initialWidth === null) return;
+    var delta = e.clientX - startX;
+    var newWidth = Math.max(((_enhancedColumns$resi = enhancedColumns[resizingIndex]) === null || _enhancedColumns$resi === void 0 ? void 0 : _enhancedColumns$resi.minWidth) || 80, initialWidth + delta);
+
+    // Create a new array of column widths with the updated width
+    var newColumnWidths = _toConsumableArray(columnWidths);
+    newColumnWidths[resizingIndex] = newWidth;
+
+    // Update the column widths state
+    setColumnWidths(newColumnWidths);
+
+    // Update our persisted ref to maintain widths during pagination
+    persistedColumnWidthsRef.current = newColumnWidths;
+
+    // Recalculate table width based on the new column widths
+    var newTableWidth = newColumnWidths.reduce(function (sum, width) {
+      return sum + width;
+    }, 0);
+    setTableWidth(newTableWidth);
+  }, [resizingIndex, startX, initialWidth, enhancedColumns, columnWidths]);
+  var handleMouseUp = useCallback(function () {
+    setResizingIndex(null);
+    setStartX(null);
+    setInitialWidth(null);
+  }, []);
+
+  // Add resize event listeners
+  useEffect(function () {
+    if (resizingIndex !== null) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return function () {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizingIndex, handleMouseMove, handleMouseUp]);
+  var handleResizeStart = function handleResizeStart(e, index) {
+    var column = enhancedColumns[index];
+    if (!column.resizable) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setResizingIndex(index);
+    setStartX(e.clientX);
+    setInitialWidth(columnWidths[index] || column.size || column.minWidth || 150);
+  };
   var loadInitialData = /*#__PURE__*/function () {
-    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
+    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
       var initialData;
       return _regeneratorRuntime().wrap(function _callee$(_context) {
         while (1) switch (_context.prev = _context.next) {
@@ -555,11 +722,11 @@ function ReactDataTable(_ref) {
       }, _callee, null, [[2, 10]]);
     }));
     return function loadInitialData() {
-      return _ref2.apply(this, arguments);
+      return _ref4.apply(this, arguments);
     };
   }();
   var fetchNextPage = /*#__PURE__*/function () {
-    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+    var _ref5 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
       var nextData;
       return _regeneratorRuntime().wrap(function _callee2$(_context2) {
         while (1) switch (_context2.prev = _context2.next) {
@@ -579,6 +746,7 @@ function ReactDataTable(_ref) {
             });
           case 6:
             nextData = _context2.sent;
+            // Update the data but maintain our column widths
             setData(function (prev) {
               return {
                 pages: [].concat(_toConsumableArray(prev.pages), [nextData]),
@@ -605,7 +773,7 @@ function ReactDataTable(_ref) {
       }, _callee2, null, [[3, 11, 14, 17]]);
     }));
     return function fetchNextPage() {
-      return _ref3.apply(this, arguments);
+      return _ref5.apply(this, arguments);
     };
   }();
   var handleSelectAll = function handleSelectAll(checked, flatData) {
@@ -671,53 +839,6 @@ function ReactDataTable(_ref) {
   useEffect(function () {
     handleScroll(tableContainerRef.current);
   }, [data]);
-  var flatData = data.pages.flatMap(function (page) {
-    return page.data;
-  });
-  var checkboxColumn = {
-    id: 'select',
-    size: 50,
-    minWidth: 50,
-    textAlign: "center",
-    header: function header(_ref4) {
-      var data = _ref4.data;
-      return /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center justify-center h-[40px]"
-      }, showSelectAllCheckbox && /*#__PURE__*/React.createElement("input", {
-        id: data.id,
-        type: "checkbox",
-        className: "bg-gray-700 rounded-4 border-gray-200 text-blue-400 focus:ring-0 focus:ring-white",
-        checked: Object.keys(selectedRows).length > 0 && data.every(function (row) {
-          return selectedRows[row.id];
-        }),
-        onChange: function onChange(e) {
-          return handleSelectAll(e.target.checked, flatData);
-        }
-      }));
-    },
-    cell: function cell(_ref5) {
-      var row = _ref5.row;
-      return /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center justify-center h-[40px]",
-        onClick: function onClick(e) {
-          return e.stopPropagation();
-        }
-      }, /*#__PURE__*/React.createElement("input", {
-        id: row.id,
-        type: "checkbox",
-        className: "bg-gray-700 rounded-4 border-gray-200 text-blue-400 focus:ring-0 focus:ring-white",
-        checked: !!selectedRows[row.id],
-        onClick: function onClick(e) {
-          return e.stopPropagation();
-        },
-        onChange: function onChange(e) {
-          e.stopPropagation();
-          handleSelectRow(e.target.checked, row, flatData);
-        }
-      }));
-    }
-  };
-  var enhancedColumns = showCheckbox ? [checkboxColumn].concat(_toConsumableArray(columns)) : columns;
   return /*#__PURE__*/React.createElement("div", {
     className: "bg-white relative w-full react-live-data-table"
   }, loading && /*#__PURE__*/React.createElement("div", {
@@ -766,42 +887,70 @@ function ReactDataTable(_ref) {
       return handleScroll(e.currentTarget);
     }
   }, /*#__PURE__*/React.createElement("table", {
-    className: "w-full border-collapse"
+    className: "w-full border-collapse",
+    style: {
+      tableLayout: 'fixed'
+    }
   }, /*#__PURE__*/React.createElement("thead", {
-    className: "sticky top-0 z-1 bg-blue-300",
+    className: "sticky top-0 z-10 bg-blue-300",
     style: _objectSpread2({}, headerProps.style)
   }, /*#__PURE__*/React.createElement("tr", null, enhancedColumns.map(function (column, columnIndex) {
+    // Use persisted column widths to ensure consistency
+    var width = columnWidths[columnIndex] || column.size || column.minWidth || 150;
     return /*#__PURE__*/React.createElement("th", {
       key: column.accessorKey || column.id,
-      className: "text-left font-normal h-[40px] border-b border-t border-solid border-[#e4e3e2] ".concat(columnIndex < enhancedColumns.length - 1 ? 'border-r' : ''),
+      className: "text-left font-normal h-[40px] border-b border-t border-solid border-[#e4e3e2] relative select-none ".concat(columnIndex < enhancedColumns.length - 1 ? 'border-r' : ''),
       style: {
-        width: column.size,
-        minWidth: column.minWidth,
+        width: "".concat(width, "px"),
+        minWidth: "".concat(width, "px"),
+        maxWidth: "".concat(width, "px"),
         textAlign: column.textAlign
       }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center h-full overflow-hidden justify-center pl-[17px]"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "truncate"
     }, typeof column.header === 'function' ? column.header({
       data: flatData
-    }) : column.header);
-  }))), /*#__PURE__*/React.createElement("tbody", null, flatData.length > 0 ? flatData.map(function (row, index) {
-    var isLastRow = index === flatData.length - 1;
+    }) : column.header)), column.resizable !== false && /*#__PURE__*/React.createElement("div", {
+      className: "absolute top-0 right-0 h-full w-4 flex items-center justify-center group ".concat(resizingIndex === columnIndex ? 'bg-blue-100' : 'hover:bg-blue-100', " transition-colors duration-200"),
+      onMouseDown: function onMouseDown(e) {
+        return handleResizeStart(e, columnIndex);
+      },
+      style: {
+        touchAction: 'none',
+        userSelect: 'none',
+        cursor: 'col-resize'
+      }
+    }));
+  }))), /*#__PURE__*/React.createElement("tbody", null, flatData.length > 0 ? flatData.map(function (row, rowIndex) {
+    var isLastRow = rowIndex === flatData.length - 1;
     return /*#__PURE__*/React.createElement("tr", {
       key: row.id,
-      className: "border-t ".concat(isLastRow ? 'border-b' : '', " border-gray-200 hover:bg-[#dee1f2] ").concat(selectedRows[row.id] ? 'bg-[#dee1f2]' : '', " ").concat(rowClassName),
+      className: "border-t ".concat(isLastRow ? 'border-b' : '', " border-gray-200 hover:bg-[#dee1f2] ").concat(selectedRows[row.id] ? 'bg-[#dee1f2]' : '', " ").concat(rowClassName, " cursor-pointer"),
       style: _objectSpread2(_objectSpread2({
         height: "".concat(rowHeights, "px")
-      }, rowStyle), typeof rowStyle === 'function' ? rowStyle(row, index) : {}),
+      }, rowStyle), typeof rowStyle === 'function' ? rowStyle(row, rowIndex) : {}),
       onClick: function onClick() {
-        return handleRowClick(row, index, flatData);
+        return handleRowClick(row, rowIndex, flatData);
       }
-    }, enhancedColumns.map(function (column, cellIndex) {
+    }, enhancedColumns.map(function (column, columnIndex) {
       var _column$cellProps, _column$cellProps2;
+      // Use persisted column widths for cells as well
+      var width = columnWidths[columnIndex] || column.size || column.minWidth || 150;
       return /*#__PURE__*/React.createElement("td", {
         key: column.accessorKey || column.id,
-        className: "text-left font-normal ".concat(cellIndex < enhancedColumns.length - 1 ? 'border-r' : '', " ").concat((column === null || column === void 0 || (_column$cellProps = column.cellProps) === null || _column$cellProps === void 0 ? void 0 : _column$cellProps.className) || ''),
-        style: _objectSpread2({
-          minWidth: "".concat(column.minWidth, "px"),
+        className: "text-left font-normal ".concat(columnIndex < enhancedColumns.length - 1 ? 'border-r' : '', " ").concat((column === null || column === void 0 || (_column$cellProps = column.cellProps) === null || _column$cellProps === void 0 ? void 0 : _column$cellProps.className) || ''),
+        style: _objectSpread2(_objectSpread2({
+          width: "".concat(width, "px"),
+          minWidth: "".concat(width, "px"),
+          maxWidth: "".concat(width, "px"),
           textAlign: column === null || column === void 0 ? void 0 : column.textAlign
-        }, column === null || column === void 0 || (_column$cellProps2 = column.cellProps) === null || _column$cellProps2 === void 0 ? void 0 : _column$cellProps2.style)
+        }, column === null || column === void 0 || (_column$cellProps2 = column.cellProps) === null || _column$cellProps2 === void 0 ? void 0 : _column$cellProps2.style), {}, {
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        })
       }, typeof column.cell === 'function' ? column.cell({
         row: row
       }) : null);
@@ -809,7 +958,14 @@ function ReactDataTable(_ref) {
   }) : /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     colSpan: enhancedColumns.length,
     className: "text-center py-4"
-  }, emptyText || 'No data available')))))));
+  }, emptyText || 'No data available')))))), resizingIndex !== null && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-40 bg-blue-50/5",
+    style: {
+      pointerEvents: 'none',
+      userSelect: 'none',
+      cursor: 'col-resize'
+    }
+  }));
 }
 
 export { ReactDataTable };
