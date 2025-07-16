@@ -504,7 +504,7 @@ function ReactDataTable({
                       return (
                         <tr
                           key={row.id}
-                          className={`react-live-data-table-row-${index} border-t ${isLastRow ? 'border-b' : ''} border-gray-200 hover:bg-[#dee1f2] ${selectedRows[row.id] ? 'bg-[#dee1f2]' : ''} ${rowClassName} cursor-pointer`}
+                          className={`react-live-data-table-row-${rowIndex} border-t ${isLastRow ? 'border-b' : ''} border-gray-200 hover:bg-[#dee1f2] ${selectedRows[row.id] ? 'bg-[#dee1f2]' : ''} ${rowClassName} cursor-pointer`}
                           style={{
                             height: `${rowHeights}px`,
                             ...rowStyle,
