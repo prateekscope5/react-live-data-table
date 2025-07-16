@@ -19,7 +19,8 @@ function ReactDataTable({
   selected = {},
   showSelectAllCheckbox = true,
   rowStyle = {},
-  rowClassName = ""
+  rowClassName = "",
+  columnReorder = false,
 }) {
   const tableContainerRef = React.useRef(null);
   const [data, setData] = React.useState({ pages: [], meta: { totalPages: 1 } });
@@ -32,6 +33,12 @@ function ReactDataTable({
   const [startX, setStartX] = useState(null);
   const [initialWidth, setInitialWidth] = useState(null);
   const [tableWidth, setTableWidth] = useState(0);
+  
+  // Column reordering state - only used when columnReorder is true
+  const [orderedColumns, setOrderedColumns] = useState(columns);
+  const [draggedColumn, setDraggedColumn] = useState(null);
+  const [dragOverColumn, setDragOverColumn] = useState(null);
+  
   // Ref to store column widths to ensure persistence during data loading
   const persistedColumnWidthsRef = React.useRef([]);
 
@@ -42,6 +49,7 @@ function ReactDataTable({
     size: 50,
     minWidth: 50,
     resizable: false,
+    reorderable: false, // Prevent checkbox column from being reordered
     textAlign: "center",
     header: ({ data }) => {
       const allSelected = flatData.length > 0 && flatData.every(row => selectedRows[row.id]);
@@ -105,7 +113,12 @@ function ReactDataTable({
     }
   };
 
-  const enhancedColumns = showCheckbox ? [checkboxColumn, ...columns] : columns;
+  const enhancedColumns = showCheckbox ? [checkboxColumn, ...orderedColumns] : orderedColumns;
+
+  // Update ordered columns when columns prop changes
+  useEffect(() => {
+    setOrderedColumns(columns);
+  }, [columns]);
 
   useEffect(() => {
     if (JSON.stringify(previousSelected.current) !== JSON.stringify(selected)) {
@@ -116,7 +129,7 @@ function ReactDataTable({
 
   // Initialize column widths array only once when component mounts or columns change
   useEffect(() => {
-    const allColumns = showCheckbox ? [{ id: 'select', size: 50 }, ...columns] : columns;
+    const allColumns = showCheckbox ? [{ id: 'select', size: 50 }, ...orderedColumns] : orderedColumns;
 
     // If we have persisted widths and the number of columns matches, use those
     if (persistedColumnWidthsRef.current.length === allColumns.length) {
@@ -130,7 +143,7 @@ function ReactDataTable({
       // Store in our ref for persistence
       persistedColumnWidthsRef.current = [...initialWidths];
     }
-  }, [columns, showCheckbox]);
+  }, [orderedColumns, showCheckbox]);
 
   useEffect(() => {
     setData({ pages: [], meta: { totalPages: 1 } });
@@ -154,6 +167,61 @@ function ReactDataTable({
       loadInitialData();
     }
   }, [dataSource, staticData]);
+
+  // Column reordering handlers - only work when columnReorder is true
+  const handleDragStart = (e, columnIndex) => {
+    if (!columnReorder || enhancedColumns[columnIndex].reorderable === false) {
+      e.preventDefault();
+      return;
+    }
+    setDraggedColumn(columnIndex);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, columnIndex) => {
+    e.preventDefault();
+    if (!columnReorder || enhancedColumns[columnIndex].reorderable === false) return;
+    setDragOverColumn(columnIndex);
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    
+    if (!columnReorder || draggedColumn === null || draggedColumn === dropIndex) {
+      setDraggedColumn(null);
+      setDragOverColumn(null);
+      return;
+    }
+
+    if (enhancedColumns[dropIndex].reorderable === false) {
+      setDraggedColumn(null);
+      setDragOverColumn(null);
+      return;
+    }
+
+    const newColumns = [...enhancedColumns];
+    const draggedColumnData = newColumns[draggedColumn];
+    
+    newColumns.splice(draggedColumn, 1);
+    const adjustedDropIndex = draggedColumn < dropIndex ? dropIndex - 1 : dropIndex;
+    newColumns.splice(adjustedDropIndex, 0, draggedColumnData);
+
+    const updatedOrderedColumns = showCheckbox ? newColumns.slice(1) : newColumns;
+    setOrderedColumns(updatedOrderedColumns);
+
+    // Reorder column widths
+    const newColumnWidths = [...columnWidths];
+    const draggedWidth = newColumnWidths[draggedColumn];
+    newColumnWidths.splice(draggedColumn, 1);
+    newColumnWidths.splice(adjustedDropIndex, 0, draggedWidth);
+    setColumnWidths(newColumnWidths);
+    persistedColumnWidthsRef.current = newColumnWidths;
+
+    // onColumnReorder?.(updatedOrderedColumns);
+
+    setDraggedColumn(null);
+    setDragOverColumn(null);
+  };
 
   const handleMouseMove = useCallback((e) => {
     if (resizingIndex === null || startX === null || initialWidth === null) return;
@@ -378,22 +446,30 @@ function ReactDataTable({
                   className="sticky top-0 z-10 bg-blue-300"
                   style={{ ...headerProps.style }}
                 >
-                  <tr>
+                  <tr className='react-live-data-table-row-header'>
                     {enhancedColumns.map((column, columnIndex) => {
-                      // Use persisted column widths to ensure consistency
                       const width = columnWidths[columnIndex] || column.size || column.minWidth || 150;
+                      const isReorderable = columnReorder && column.reorderable !== false;
+                      const isDropTarget = dragOverColumn === columnIndex && draggedColumn !== columnIndex;
 
                       return (
                         <th
                           key={column.accessorKey || column.id}
-                          className={`text-left font-normal h-[40px] border-b border-t border-solid border-[#e4e3e2] relative select-none ${columnIndex < enhancedColumns.length - 1 ? 'border-r' : ''
-                            }`}
+                          className={`text-left font-normal h-[40px] border-b border-t border-solid border-[#e4e3e2] relative select-none ${
+                            columnIndex < enhancedColumns.length - 1 ? 'border-r' : ''
+                          } ${isReorderable ? 'cursor-move' : ''} ${
+                            isDropTarget ? 'bg-blue-400' : ''
+                          }`}
                           style={{
                             width: `${width}px`,
                             minWidth: `${width}px`,
                             maxWidth: `${width}px`,
                             textAlign: column.textAlign,
                           }}
+                          draggable={isReorderable}
+                          onDragStart={(e) => handleDragStart(e, columnIndex)}
+                          onDragOver={(e) => handleDragOver(e, columnIndex)}
+                          onDrop={(e) => handleDrop(e, columnIndex)}
                         >
                           <div className="flex items-center h-full overflow-hidden justify-center pl-[17px]">
                             <span className="truncate">
@@ -404,8 +480,9 @@ function ReactDataTable({
                           {/* Resize handle - Only show if column is resizable */}
                           {column.resizable !== false && (
                             <div
-                              className={`absolute top-0 right-0 h-full w-4 flex items-center justify-center group ${resizingIndex === columnIndex ? 'bg-blue-100' : 'hover:bg-blue-100'
-                                } transition-colors duration-200`}
+                              className={`absolute top-0 right-0 h-full w-4 flex items-center justify-center group ${
+                                resizingIndex === columnIndex ? 'bg-blue-100' : 'hover:bg-blue-100'
+                              } transition-colors duration-200`}
                               onMouseDown={(e) => handleResizeStart(e, columnIndex)}
                               style={{
                                 touchAction: 'none',
@@ -427,7 +504,7 @@ function ReactDataTable({
                       return (
                         <tr
                           key={row.id}
-                          className={`border-t ${isLastRow ? 'border-b' : ''} border-gray-200 hover:bg-[#dee1f2] ${selectedRows[row.id] ? 'bg-[#dee1f2]' : ''} ${rowClassName} cursor-pointer`}
+                          className={`react-live-data-table-row-${index} border-t ${isLastRow ? 'border-b' : ''} border-gray-200 hover:bg-[#dee1f2] ${selectedRows[row.id] ? 'bg-[#dee1f2]' : ''} ${rowClassName} cursor-pointer`}
                           style={{
                             height: `${rowHeights}px`,
                             ...rowStyle,
@@ -436,7 +513,6 @@ function ReactDataTable({
                           onClick={() => handleRowClick(row, rowIndex, flatData)}
                         >
                           {enhancedColumns.map((column, columnIndex) => {
-                            // Use persisted column widths for cells as well
                             const width = columnWidths[columnIndex] || column.size || column.minWidth || 150;
 
                             return (

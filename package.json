@@ -1,6 +1,6 @@
 {
   "name": "react-live-data-table",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Your React component package with Tailwind",
   "main": "src/index.js",
   "module": "dist/index.esm.js",
